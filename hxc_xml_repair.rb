@@ -109,10 +109,6 @@ def repair name
     expect("Track number", track_number, :eq, trk) if (track_number)
     sid = track["side_number"].to_i
     expect("Side number", side_number, :eq, sid) if (side_number)
-    if (number_of_sides > 1)
-      side_number = (side_number == 0) ? 1 : 0
-    end
-#    print "\rTrack #{trk}, Side #{sid}"
     node = track.xpath("data_offset")
     data_offset = node.text.to_i(16)
     if (added_offset > 0)
@@ -121,12 +117,28 @@ def repair name
     end
     sector_number = nil
 
+    sectors = Hash.new
     track.xpath("sector_list/sector").each do |sector|
       sec = sector["sector_id"].to_i
+      sectors[sec] = sector
+    end
+    sectors.keys.sort.each do |sec|
+      sector = sectors[sec]
+#      STDERR.puts "Track #{trk}, Side #{sid}, Sector #{sec}"
       sector_offset = sector.xpath("data_offset").first
       data_offset = sector_offset.text.to_i(16)
+
+      # sector might be empty
+
+      if sector.xpath("sector_data").empty? && sector.xpath("data_fill").empty?
+        data_fill = Nokogiri::XML::Node.new("data_fill", doc)
+        data_fill.content = "0x00"
+        sector.add_child data_fill
+        added_offset += sector_size
+      end
+
       while (sector_number && (sector_number < sec)) # missing sector(s) ?
-        STDERR.puts "Adding sector #{sector_number} in track #{track_number}"
+        STDERR.puts "Adding sector #{sector_number} in track #{track_number}, side #{side_number}"
         #  <sector sector_id="5" sector_size="128">
         #    <data_fill>0x00</data_fill>
         #    <datamark>0xFB</datamark>
@@ -154,7 +166,11 @@ def repair name
       expect("Sector number", sector_number, :eq, sec) if sector_number
       sector_number = sec + 1
     end
-    track_number = trk + 1 #fixme double sided
+    side_number = sid + 1
+    if side_number >= number_of_sides
+      side_number = nil
+      track_number = trk + 1
+    end
   end
   puts doc.to_xml
 end
