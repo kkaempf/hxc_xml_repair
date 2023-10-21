@@ -31,6 +31,16 @@ def expect what, value1, how, value2
       end
       exit(1)
     end
+  when :gt
+    unless value1 > value2
+      case value1
+      when Integer
+        STDERR.puts "Expectation fails: #{what}: 0x#{value1.to_s(16)} > 0x#{value2.to_s(16)} -> false"
+      else
+        STDERR.puts "Expectation fails: #{what}: #{value1.inspect} > #{value2.inspect} -> false"
+      end
+      exit(1)
+    end
   else
   end
 end
@@ -88,11 +98,13 @@ def repair name
   track_size = sector_per_track * sector_size
 
   STDERR.puts ("#{number_of_tracks} tracks, #{number_of_sides} sides, #{sector_per_track} sectors, starting at #{start_sector_id}, #{sector_size} bytes per sector")
+
   track_offset = nil
   sector_offset = nil
   track_number = nil
   side_number = nil
   data_offset = nil
+  computed_offset = 0
   added_offset = 0
   #     <track_list>
   #       <track track_number="00" side_number="0">
@@ -122,15 +134,20 @@ def repair name
       sec = sector["sector_id"].to_i
       sectors[sec] = sector
     end
+
     sectors.keys.sort.each do |sec|
       sector = sectors[sec]
-#      STDERR.puts "Track #{trk}, Side #{sid}, Sector #{sec}"
+      sector_size = sector["sector_size"].to_i
       sector_offset = sector.xpath("data_offset").first
       data_offset = sector_offset.text.to_i(16)
+#      STDERR.puts "Track #{trk}, Side #{sid}, Sector #{sec}, Size #{sector_size}, Offset #{data_offset.to_s(16)}/#{computed_offset.to_s(16)}"
+      expect("Sector size", sector_size, :gt, 0)
+      expect("Offset", computed_offset, :eq, data_offset) if data_offset > computed_offset
 
       # sector might be empty
 
       if sector.xpath("sector_data").empty? && sector.xpath("data_fill").empty?
+        STDERR.puts "Track #{trk}, Side #{sid}, Sector #{sec} is empty"
         data_fill = Nokogiri::XML::Node.new("data_fill", doc)
         data_fill.content = "0x00"
         sector.add_child data_fill
@@ -161,8 +178,10 @@ def repair name
         added_offset += sector_size
       end
       if (added_offset > 0)
-        sector_offset.content = "0x" + (data_offset + added_offset).to_s(16)
+        computed_offset += added_offset
+        sector_offset.content = "0x" + (computed_offset).to_s(16)
       end
+      computed_offset += sector_size
       expect("Sector number", sector_number, :eq, sec) if sector_number
       sector_number = sec + 1
     end
