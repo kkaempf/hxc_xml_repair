@@ -1,4 +1,4 @@
-# HxC XML repair
+# HxC XML repair and generate
 
 ## Motivation
 
@@ -51,3 +51,15 @@ track number, S = side number)
 
 Now e.g. [cpmtools](http://www.moria.de/~michael/cpmtools) can be used to
 copy files off this image. (Well, if the image is a CP/M disk :wink:)
+
+ 
+# HxC XML generate
+
+Generate a HxC XML file from a (flat) image file.
+
+
+How to use
+
+hxc_xml_gen <sector_size> <sectors_per_track> <sides> <tracks> <image_file>
+
+hxc_xml_gen 1024 5 2 80 d80dsdd.img - generate 80 tracks, double sided, 5 sectors a 1024 bytes
