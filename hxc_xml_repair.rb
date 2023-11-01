@@ -130,14 +130,24 @@ def repair name
     sector_number = nil
 
     sectors = Hash.new
+    expected_sector_id = start_sector_id
     track.xpath("sector_list/sector").each do |sector|
       sec = sector["sector_id"].to_i
+      if sec < start_sector_id
+        STDERR.puts "Track #{trk}, Side #{sid}, Sector #{expected_sector_id} is #{sec}"
+        sec = expected_sector_id
+        sector["sector_id"] = sec
+      end
       sectors[sec] = sector
+      expected_sector_id += 1
     end
 
     sectors.keys.sort.each do |sec|
       sector = sectors[sec]
-      sector_size = sector["sector_size"].to_i
+      this_sector_size = sector["sector_size"].to_i
+      if (this_sector_size == 0)
+        this_sector_size = sector["sector_size"] = sector_size
+      end
       sector_offset = sector.xpath("data_offset").first
       data_offset = sector_offset.text.to_i(16)
 #      STDERR.puts "Track #{trk}, Side #{sid}, Sector #{sec}, Size #{sector_size}, Offset #{data_offset.to_s(16)}/#{computed_offset.to_s(16)}"
