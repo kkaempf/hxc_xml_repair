@@ -136,7 +136,15 @@ File.open(image_name) do |image|
       #   </sector>          
       sector_list = add_node(track_node, "sector_list")
       sector_id = 0
-      (1..sectors_per_side).each do |sector_number|
+      skew = ENV['SKEW'].atoi rescue 1
+      if skew
+        if skew < 1 || skew >= sectors_per_side
+          STDERR.puts "Illegal SKEW"
+          skew = 1
+        end
+      end
+      sector_number = 1
+      (1..sectors_per_side).each do
         sector_data = image.sysread(sector_size)
         sector_node = add_node(sector_list, "sector")
         sector_node["sector_id"] = sector_id
@@ -146,6 +154,7 @@ File.open(image_name) do |image|
         add_node(sector_node, "datamark", "0xFB")
         add_node(sector_node, "data_offset", "0x%06x" % data_offset)
         data_offset = image.tell
+        sector_number = (sector_number + skew) % sectors_per_side
       end
     end
   end
